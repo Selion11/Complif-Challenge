@@ -1,3 +1,6 @@
+const fs = require('fs'); 
+const path = require('path');
+
 const createCompany = (req, res, next) => {
     try {
         const { nombre, cuit, pais, industria } = req.body;
@@ -28,6 +31,13 @@ const createCompany = (req, res, next) => {
 
         const requiresManualReview = score > 70;
         
+        logger.info({
+            service: 'CompanyController',
+            message: `Empresa ${nombre} (CUIT: ${cuit}) procesada. Score: ${score}`,
+            cuit: cuit,
+            score: score
+        });
+
         res.status(201).json({
             success: true,
             message: requiresManualReview 
@@ -47,4 +57,49 @@ const createCompany = (req, res, next) => {
     } catch (error) {
         next(error);
     }
+};
+
+const listDocuments = (req,res,next) => {
+    try{
+        const {cuit} = req.params;
+        const folderPath = path.join('uploads',cuit);
+
+        if(!fs.existsSync(folderPath)) {
+            logger.info({
+                service: 'CompanyController',
+                message: `Consulta de documentos: Carpeta no encontrada para CUIT ${cuit}`,
+                cuit
+            });
+
+            return res.status(200).json({
+                success: true,
+                cuit,
+                document: [],
+                message: "Esta empresa aún no tiene documentos cargados."
+            })
+        }
+
+        const files = fs.readdirSync(uploadPath);
+
+        logger.info({
+            service: 'CompanyController',
+            message: `Documentos listados para CUIT ${cuit}. Total: ${files.length}`,
+            cuit
+        });
+
+        res.status(200).json({
+            success: true,
+            cuit,
+            total: files.length,
+            documents: files
+        })
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = {
+    createCompany,
+    listDocuments
 };

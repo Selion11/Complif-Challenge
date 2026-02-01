@@ -1,14 +1,31 @@
 const multer = require('multer');
+const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    const {cuit} = req.body;
+    
+    if(!cuit){
+      return cb(new Error('El CUIT es necesario'),null);
+    }
+
+    const uploadPath = path.join('uploads',cuit)
+
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+      logger.info({
+        service: 'UploadMiddleware',
+        message: `Carpeta creada para la empresa con CUIT: ${cuit}`
+      });
+    }
+
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `${uniqueSuffix}-${file.originalname}`);
+    const fileExtension = path.extname(file.originalname);
+    cb(null, `${file.fieldname}${fileExtension}`);
   }
 });
 
