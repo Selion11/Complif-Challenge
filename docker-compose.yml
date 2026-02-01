@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:15
+    container_name: complif_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servicio de validación: Corre los tests y muere
+  run_tests:
+    build: .
+    container_name: complif_tester
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - NODE_ENV=test
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm test
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: .
+    container_name: complif_api
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - PORT=8080
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      # LA MAGIA: Solo arranca si los tests terminaron con éxito (exit 0)
+      run_tests:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  postgres_data:
