@@ -99,7 +99,55 @@ const listDocuments = (req,res,next) => {
     }
 };
 
+const updateSingleDocument = (req,res,next) => {
+    try{
+        const {cuit} = req.params;
+        const files = req.files || {};
+
+        if (Object.keys(files).length === 0) {
+            const error = new Error('No se recibió ningún archivo para actualizar');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const uploadPath = path.join('uploads', cuit);
+        const existingFiles = fs.existsSync(uploadPath) ? fs.readdirSync(uploadPath) : [];
+
+        const tieneCertificado = existingFiles.some(f => f.startsWith('certificadoFiscal'));
+        const tieneConstancia = existingFiles.some(f => f.startsWith('constanciaInscripcion'));
+        const tienePoliza = existingFiles.some(f => f.startsWith('polizaSeguro'));
+
+        const isComplete = tieneCertificado && tieneConstancia && tienePoliza;
+
+        const score = riskService.calculateRiskScore({
+            pais: req.body.pais || "Desconocido", 
+            industria: req.body.industria || "Desconocida",
+            hasDocuments: isComplete
+        }, 'CompanyController');
+
+        logger.info({
+            service: 'CompanyController',
+            message: `Documento actualizado para CUIT ${cuit}. Nuevo Score: ${score}`,
+            cuit
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Documento actualizado correctamente y score recalculado",
+            data: {
+                cuit,
+                newRiskScore: score,
+                isComplete,
+                updatedFields: Object.keys(files)
+            }
+        });
+    } catch (error) {
+
+    }
+}
+
 module.exports = {
     createCompany,
-    listDocuments
+    listDocuments,
+    updateSingleDocument
 };
