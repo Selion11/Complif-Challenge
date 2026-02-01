@@ -12,7 +12,7 @@ const calculateRiskScore = (data,origin='RiskService') => {
             score = 70;
         }
 
-        if (HIGH_RISK_INDUSTRIES.includes(data.industria.toLowerCase()) && score < 70) {
+        if (HIGH_RISK_INDUSTRIES.includes(data.industria?.toLowerCase()) && score < 70) {
             score = 70; 
         }
 
