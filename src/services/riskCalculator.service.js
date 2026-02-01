@@ -4,7 +4,7 @@ const HIGH_RISK_INDUSTRIES = ['construcción', 'seguridad', 'casas de cambio', '
 
 const HIGH_RISK_COUNTRIES = ['Islas Caimán', 'Panamá', 'Bahamas']; 
 
-const calculateRiskScore = (data) => {
+const calculateRiskScore = (data,origin='RiskService') => {
     try{
          let score = 0;
 
