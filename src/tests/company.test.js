@@ -1,7 +1,7 @@
 const request = require('supertest');
 const app = require('../app');
-const sequelize = require('../src/config/database');
-const Company = require('../src/models/company.model');
+const sequelize = require('../config/database');
+const Company = require('../models/company.model');
 const fs = require('fs');
 const path = require('path');
 
