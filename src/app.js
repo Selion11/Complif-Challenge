@@ -1,10 +1,13 @@
 const express = require('express');
-const app = express();
 const errorHandler = require('./middlewares/error.middleware');
+const authenticate = require('./middlewares/auth.middleware')
 const logger = require('./utils/logger');
 
 const companyRoutes = require('./routes/company.routes');
-const systemRoutes = require('./routes/system.routes')
+const systemRoutes = require('./routes/system.routes');
+const authRoutes = require('./routes/auth.routes');
+
+const app = express();
 
 // MIDDLEWARES
 app.use(express.json()); 
@@ -15,9 +18,13 @@ app.use((req, res, next) => {
   next();
 });
 
-//ROUTES
-app.use('/api/companies', companyRoutes);
-app.use('/health',systemRoutes)
+//PUBLIC ROUTES
+app.use('/health',systemRoutes);
+app.use('/api/auth',authRoutes)
+
+//PROTECTED ROUTES: unauthorized users cannot access them
+app.use('/api/companies',authenticate, companyRoutes);
+;
 
 app.use((req,res,next) => {
   const error = new Error(`La ruta ${req.originalUrl} con el metodo ${req.method} no existe.`);
@@ -25,5 +32,7 @@ app.use((req,res,next) => {
   next(error);
 })
 
+//GLOBAL ERROR HANDLER
 app.use(errorHandler);
+
 module.exports = app; 
