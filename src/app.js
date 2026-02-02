@@ -6,6 +6,7 @@ const logger = require('./utils/logger');
 const companyRoutes = require('./routes/company.routes');
 const systemRoutes = require('./routes/system.routes');
 const authRoutes = require('./routes/auth.routes');
+const groupRoutes = require('./routes/group.routes')
 
 const app = express();
 
@@ -24,7 +25,7 @@ app.use('/api/auth',authRoutes)
 
 //PROTECTED ROUTES: unauthorized users cannot access them
 app.use('/api/companies',authenticate, companyRoutes);
-;
+app.use('/api/groups',authenticate,groupRoutes);
 
 app.use((req,res,next) => {
   const error = new Error(`La ruta ${req.originalUrl} con el metodo ${req.method} no existe.`);
