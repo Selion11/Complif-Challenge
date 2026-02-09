@@ -4,6 +4,8 @@ const { Company, Document } = require('../models');
 const riskService = require('../services/riskCalculator.service');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
+const axios = require('axios');
+
 
 const createCompany = async (req, res, next) => { 
     console.log("===> PETICIÓN RECIBIDA EN CREATECOMPANY");
@@ -16,6 +18,17 @@ const createCompany = async (req, res, next) => {
             const error = new Error(`El campo '${missingField}' es obligatorio`);
             error.statusCode = 400;
             throw error;
+        }
+
+        try {
+            const response = await axios.post('http://cuit-validator:3001/validate-cuit', { cuit });
+            if (!response.data.valid) {
+                throw new Error('Validación externa de CUIT fallida');
+            }
+        } catch (error) {
+            const err = new Error('El CUIT no pudo ser validado externamente');
+            err.statusCode = 400;
+            throw err;
         }
 
         const docs = req.files || {};
