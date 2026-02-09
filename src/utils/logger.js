@@ -6,13 +6,20 @@ const customFormat = format.printf(({ level, message, timestamp, service }) => {
 });
 
 const logger = createLogger({
+  level: process.env.LOG_LEVEL || 'info',
   format: format.combine(
     format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    format.json(),
-    customFormat  
+    format.json()
   ),
   transports: [
-    new transports.Console(),
+    new transports.Console({
+      format: format.combine(
+        format.colorize(),
+        format.printf(({ level, message, timestamp, service }) => {
+          return `[${timestamp}] [${level}] [${service || 'General'}]: ${message}`;
+        })
+      )
+    }),
     new transports.File({ filename: 'logs/combined.log' })
   ],
 });
