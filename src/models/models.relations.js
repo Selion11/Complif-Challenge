@@ -4,6 +4,7 @@ const Group = require('./group.model');
 const Rule = require('./rule.model');
 const SignatureRequest = require('./request.model');
 const Signature = require('./signature.model');
+const Document = require('./document.model');
 
 // RELACIONES: Empresa <-> Usuario
 Company.hasMany(User, { foreignKey: 'cuit_empresa' });
@@ -42,11 +43,15 @@ Signature.belongsTo(SignatureRequest, { foreignKey: 'id_request' });
 User.hasMany(Signature, { foreignKey: 'id_usuario' });
 Signature.belongsTo(User, { foreignKey: 'id_usuario' });
 
+Company.hasMany(Document, { foreignKey: 'cuit_empresa', as: 'documentos' });
+Document.belongsTo(Company, { foreignKey: 'cuit_empresa' });
+
 module.exports = {
   Company,
   User,
   Group,
   Rule,
   SignatureRequest,
-  Signature
+  Signature,
+  Document
 }
