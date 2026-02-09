@@ -1,6 +1,6 @@
 const fs = require('fs'); 
 const path = require('path');
-const Company = require('../models/company.model'); 
+const { Company, Document } = require('../models'); 
 const riskService = require('../services/riskCalculator.service');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
@@ -37,9 +37,7 @@ const createCompany = async (req, res, next) => {
         const requiresManualReview = score >= 70;
         const initialStatus = requiresManualReview ? 'PENDING_REVIEW' : 'AUTO_APPROVED';
 
-
         const existingCompany = await Company.findByPk(cuit);
-
         if (existingCompany) {
             const error = new Error(`Ya existe una empresa registrada con el CUIT: ${cuit}`);
             error.statusCode = 409;
@@ -55,9 +53,22 @@ const createCompany = async (req, res, next) => {
             status: initialStatus
         });
 
+        if (req.files) {
+            const documentEntries = [];
+            for (const field in req.files) {
+                const file = req.files[field][0];
+                documentEntries.push({
+                    tipo: field,
+                    ruta_archivo: file.path,
+                    cuit_empresa: cuit
+                });
+            }
+            await Document.bulkCreate(documentEntries);
+        }
+
         logger.info({
             service: 'CompanyController',
-            message: `Nueva empresa registrada: ${nombre} (CUIT: ${cuit})`,
+            message: `Nueva empresa registrada y documentos vinculados: ${nombre} (CUIT: ${cuit})`,
             cuit
         });
 
@@ -65,7 +76,7 @@ const createCompany = async (req, res, next) => {
             success: true,
             message: requiresManualReview ? "Registro recibido. Requiere revisión." : "Aprobado automáticamente.",
             data: {
-                company: { nombre, cuit, pais, industria },
+                company: company,
                 riskAnalysis: {
                     score,
                     status: initialStatus,
@@ -81,27 +92,20 @@ const createCompany = async (req, res, next) => {
     }
 };
 
-const listDocuments = (req, res, next) => {
+const listDocuments = async (req, res, next) => {
     try {
         const { cuit } = req.params;
-        const folderPath = path.join('uploads', cuit);
 
-        if (!fs.existsSync(folderPath)) {
-            return res.status(200).json({
-                success: true,
-                cuit,
-                documents: [],
-                message: "Sin documentos cargados."
-            });
-        }
-
-        const files = fs.readdirSync(folderPath); 
+        const documents = await Document.findAll({
+            where: { cuit_empresa: cuit }
+        });
 
         res.status(200).json({
             success: true,
             cuit,
-            total: files.length,
-            documents: files
+            total: documents.length,
+            documents: documents,
+            message: documents.length > 0 ? "Documentos encontrados." : "Sin documentos cargados."
         });
     } catch (error) {
         next(error);
@@ -126,12 +130,18 @@ const updateSingleDocument = async (req, res, next) => {
             throw error;
         }
 
-        const uploadPath = path.join('uploads', cuit);
-        const existingFiles = fs.existsSync(uploadPath) ? fs.readdirSync(uploadPath) : [];
+        for (const field in files) {
+            const file = files[field][0];
+            await Document.upsert({
+                tipo: field,
+                ruta_archivo: file.path,
+                cuit_empresa: cuit
+            });
+        }
 
-        const isComplete = ['certificadoFiscal', 'constanciaInscripcion', 'polizaSeguro'].every(name => 
-            existingFiles.some(f => f.startsWith(name))
-        );
+        const currentDocs = await Document.findAll({ where: { cuit_empresa: cuit } });
+        const requiredTypes = ['certificadoFiscal', 'constanciaInscripcion', 'polizaSeguro'];
+        const isComplete = requiredTypes.every(type => currentDocs.some(d => d.tipo === type));
 
         const score = riskService.calculateRiskScore({
             pais: companyData.pais, 
@@ -143,7 +153,7 @@ const updateSingleDocument = async (req, res, next) => {
 
         logger.info({
             service: 'CompanyController',
-            message: `Doc actualizado. CUIT ${cuit}. Nuevo Score: ${score}`
+            message: `Documento y DB actualizados. CUIT ${cuit}. Nuevo Score: ${score}`
         });
 
         res.status(200).json({
@@ -160,7 +170,7 @@ const getRiskScore = async (req,res,next) => {
         const { cuit } = req.params;
 
         const company = await Company.findByPk(cuit, {
-            attributes: ['cuit', 'nombre', 'riskScore', 'updatedAt'] // Solo traemos lo necesario
+            attributes: ['cuit', 'nombre', 'riskScore', 'updatedAt']
         });
 
         if (!company) {
@@ -170,13 +180,7 @@ const getRiskScore = async (req,res,next) => {
         }
 
         const score = company.riskScore;
-        const requiresManualReview = score > 70;
-
-        logger.info({
-            service: 'CompanyController',
-            message: `Consulta de Risk Score para CUIT ${cuit}: ${score}`,
-            cuit
-        });
+        const requiresManualReview = score >= 70;
 
         res.status(200).json({
             success: true,
@@ -197,7 +201,9 @@ const getRiskScore = async (req,res,next) => {
 const getCompanyDetail = async (req, res, next) => {
     try {
         const { cuit } = req.params;
-        const company = await Company.findByPk(cuit);
+        const company = await Company.findByPk(cuit, {
+            include: [{ model: Document, as: 'documentos' }] 
+        });
 
         if (!company) {
             const error = new Error('Empresa no encontrada');
@@ -238,7 +244,6 @@ const updateStatus = async (req, res, next) => {
 const listCompanies = async (req, res, next) => {
     try {
         const { pais, industria, page = 1, limit = 10 } = req.query;
-        
         const offset = (page - 1) * limit;
 
         const where = {};
@@ -250,7 +255,7 @@ const listCompanies = async (req, res, next) => {
             limit: parseInt(limit),
             offset: parseInt(offset),
             order: [['createdAt', 'DESC']]
-        });
+        }); 
 
         res.status(200).json({
             success: true,
