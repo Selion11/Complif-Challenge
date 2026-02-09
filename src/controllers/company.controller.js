@@ -1,5 +1,3 @@
-const fs = require('fs'); 
-const path = require('path');
 const { Company, Document } = require('../models'); 
 const riskService = require('../services/riskCalculator.service');
 const logger = require('../utils/logger');
