@@ -86,9 +86,13 @@ const createCompany = async (req, res, next) => {
         }
 
         logger.info({
+            event: 'COMPANY_CREATED', // Evento claro para el "webhook" mock
             service: 'CompanyController',
-            message: `Nueva empresa registrada y documentos vinculados: ${nombre} (CUIT: ${cuit})`,
-            cuit
+            message: `Nueva empresa registrada: ${nombre}`,
+            cuit: cuit,
+            actor: req.user.id, // Quién disparó la creación
+            riskScore: score,
+            status: initialStatus
         });
 
         res.status(201).json({
@@ -171,8 +175,13 @@ const updateSingleDocument = async (req, res, next) => {
         await companyData.update({ riskScore: score });
 
         logger.info({
+            event: 'DOCUMENT_UPLOADED',
             service: 'CompanyController',
-            message: `Documento y DB actualizados. CUIT ${cuit}. Nuevo Score: ${score}`
+            message: `Documentación actualizada para CUIT ${cuit}`,
+            cuit: cuit,
+            actor: req.user.id,
+            newRiskScore: score,
+            isComplete: isComplete
         });
 
         res.status(200).json({
@@ -261,9 +270,13 @@ const updateStatus = async (req, res, next) => {
         });
 
         logger.info({
+            event: 'STATUS_UPDATED',
             service: 'StatusService',
-            message: `Cambio de estado: ${cuit} de ${oldStatus} a ${status}`,
-            adminId: req.user.id
+            message: `Cambio de estado para ${cuit}`,
+            cuit: cuit,
+            actor: req.user.id,
+            oldStatus: oldStatus,
+            newStatus: status
         });
 
         res.status(200).json({

@@ -1,4 +1,5 @@
 const { SignatureRequest, Signature, Rule, User, Group } = require('../models');
+const logger = require('../utils/logger'); 
 
 const createRequest = async (req, res, next) => {
   try {
@@ -9,6 +10,15 @@ const createRequest = async (req, res, next) => {
       accion,
       descripcion,
       cuit_empresa
+    });
+
+    logger.info({
+      event: 'SIGNATURE_REQUEST_CREATED',
+      service: 'SignatureController',
+      message: `Nueva solicitud para facultad: ${accion}`,
+      cuit: cuit_empresa,
+      requestId: request.id,
+      actor: req.user.id
     });
 
     res.status(201).json({ success: true, data: request });
@@ -33,7 +43,7 @@ const signRequest = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'La solicitud ya no está pendiente' });
     }
 
-    await Signature.findOrCreate({
+    const [signature, created] = await Signature.findOrCreate({
       where: { id_request: requestId, id_usuario: userId }
     });
 
@@ -46,19 +56,37 @@ const signRequest = async (req, res, next) => {
     });
 
     const rules = await Rule.findAll({
-      where: { nombre_regla: request.accion, cuit_empresa }
+      where: { facultad: request.accion, cuit_empresa }
     });
 
     const isApproved = rules.some(rule => {
       const count = currentSignatures.filter(sig => 
-        sig.User.Groups.some(g => g.id === rule.id_grupo)
+        sig.User.Groups.some(g => g.id === rule.grupo_id)
       ).length;
       return count >= rule.cantidad_requerida;
     });
 
+    const oldStatus = request.estado;
+
     if (isApproved) {
       request.estado = 'COMPLETED';
       await request.save();
+
+      logger.info({
+        event: 'SIGNATURE_REQUEST_COMPLETED',
+        service: 'SignatureController',
+        message: `Solicitud ${requestId} completada exitosamente`,
+        cuit: cuit_empresa,
+        facultad: request.accion
+      });
+    } else {
+      logger.info({
+        event: 'SIGNATURE_ADDED',
+        service: 'SignatureController',
+        message: `Usuario ${userId} firmó solicitud ${requestId}`,
+        cuit: cuit_empresa,
+        currentStatus: request.estado
+      });
     }
 
     res.json({ 
