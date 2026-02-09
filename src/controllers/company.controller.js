@@ -1,4 +1,4 @@
-const { Company, Document } = require('../models'); 
+const { Company, Document, StatusHistory } = require('../models'); 
 const riskService = require('../services/riskCalculator.service');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
@@ -63,6 +63,14 @@ const createCompany = async (req, res, next) => {
             riskScore: score,
             status: initialStatus
         });
+
+        await StatusHistory.create({
+            cuit_empresa: cuit,
+            estado_anterior: null,
+            estado_nuevo: initialStatus,
+            usuario_id: req.user.id,
+            comentario: 'Registro inicial de la empresa'
+        })
 
         if (req.files) {
             const documentEntries = [];
@@ -231,7 +239,7 @@ const getCompanyDetail = async (req, res, next) => {
 const updateStatus = async (req, res, next) => {
     try {
         const { cuit } = req.params;
-        const { status } = req.body; 
+        const { status, comentario } = req.body; 
 
         const company = await Company.findByPk(cuit);
         if (!company) {
@@ -240,7 +248,23 @@ const updateStatus = async (req, res, next) => {
             throw error;
         }
 
+        const oldStatus = company.status;
+
         await company.update({ status });
+
+        await StatusHistory.create({
+            cuit_empresa: cuit,
+            estado_anterior: oldStatus,
+            estado_nuevo: status,
+            usuario_id: req.user.id,
+            comentario: comentario || 'Cambio de estado manual'
+        });
+
+        logger.info({
+            service: 'StatusService',
+            message: `Cambio de estado: ${cuit} de ${oldStatus} a ${status}`,
+            adminId: req.user.id
+        });
 
         res.status(200).json({
             success: true,
