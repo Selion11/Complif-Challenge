@@ -7,7 +7,8 @@ const companyRoutes = require('./routes/company.routes');
 const systemRoutes = require('./routes/system.routes');
 const authRoutes = require('./routes/auth.routes');
 const groupRoutes = require('./routes/group.routes');
-const ruleRoutes = require('./routes/rule.routes'); 
+const ruleRoutes = require('./routes/rule.routes');
+const requestRoutes = require('./routes/request.routes'); 
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/api/auth',authRoutes)
 app.use('/api/companies',authenticate, companyRoutes);
 app.use('/api/groups',authenticate,groupRoutes);
 app.use('/api/rules', authenticate, ruleRoutes);
+app.use('/api/requests', authenticate, requestRoutes);
 
 app.use((req,res,next) => {
   const error = new Error(`La ruta ${req.originalUrl} con el metodo ${req.method} no existe.`);
