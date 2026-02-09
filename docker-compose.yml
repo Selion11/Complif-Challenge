@@ -16,6 +16,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  
+  cuit-validator:
+    build: 
+      context: ./cuit-validator
+    container_name: cuit-validator
+    ports:
+      - "3001:3001"
+    restart: always
 
   # Servicio de validación: Corre los tests y muere
   run_tests:
