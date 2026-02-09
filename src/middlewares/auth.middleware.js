@@ -15,7 +15,7 @@ const authenticate = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key_provisoria');
     req.user = decoded; 
 
-    const requestedCuit = req.params.cuit || req.body.cuit || req.body.cuit_empresa;
+    const requestedCuit = req.params.cuit || req.body.cuit || req.body.cuit_empresa || req.query.cuit;
 
     if (req.user.role !== 'admin' && requestedCuit && requestedCuit !== req.user.cuit) {
       return res.status(403).json({ 
@@ -26,7 +26,10 @@ const authenticate = (req, res, next) => {
 
     next(); 
   } catch (error) {
-    return res.status(403).json({ success: false, message: 'Token inválido o expirado.' });
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Token inválido o expirado.' 
+    });
   }
 };
 
@@ -36,7 +39,7 @@ const isAdmin = (req, res, next) => {
   } else {
     res.status(403).json({ 
       success: false, 
-      message: 'Acceso denegado: Se requieren permisos de administrador para esta acción.' 
+      message: 'Acceso denegado: Se requieren permisos de administrador.' 
     });
   }
 };
