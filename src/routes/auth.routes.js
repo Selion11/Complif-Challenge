@@ -2,11 +2,15 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
 
+// Integración de validación de entradas
+const validate = require('../middlewares/validate.middleware');
+const { signupSchema, loginSchema } = require('../validations/auth.validation');
+
 /**
  * @openapi
  * tags:
  * name: Auth
- * description: Gestión de usuarios y sesiones
+ * description: Gestión de usuarios y sesiones de acceso
  */
 
 /**
@@ -43,16 +47,16 @@ const authController = require('../controllers/auth.controller');
  * 201:
  * description: Usuario creado con éxito
  * 400:
- * description: Error en la validación de datos
+ * description: Error de validación o datos malformados
  */
-router.post('/signup', authController.signup);
+router.post('/signup', validate(signupSchema), authController.signup);
 
 /**
  * @openapi
  * /api/auth/login:
  * post:
  * summary: Iniciar sesión
- * description: Devuelve un token JWT necesario para acceder a las rutas protegidas
+ * description: Autentica credenciales y devuelve un token JWT con rol y CUIT.
  * tags: [Auth]
  * requestBody:
  * required: true
@@ -73,7 +77,9 @@ router.post('/signup', authController.signup);
  * description: Login exitoso, devuelve el token JWT
  * 401:
  * description: Credenciales inválidas
+ * 400:
+ * description: Error de validación en los campos requeridos
  */
-router.post('/login', authController.login);
+router.post('/login', validate(loginSchema), authController.login);
 
 module.exports = router;

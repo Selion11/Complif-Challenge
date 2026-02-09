@@ -5,6 +5,9 @@ const companyController = require('../controllers/company.controller');
 const companyUploads = require('../middlewares/upload.middleware');
 const { authenticate, isAdmin } = require('../middlewares/auth.middleware');
 
+const validate = require('../middlewares/validate.middleware');
+const { createCompanySchema, updateStatusSchema } = require('../validations/company.validation');
+
 /**
  * @openapi
  * tags:
@@ -29,12 +32,10 @@ router.use(authenticate);
  * name: country
  * schema:
  * type: string
- * description: Filtrar por país
  * - in: query
  * name: industry
  * schema:
  * type: string
- * description: Filtrar por sector industrial
  * responses:
  * 200:
  * description: Listado obtenido con éxito.
@@ -134,7 +135,8 @@ router.get('/:cuit/risk-score', companyController.getRiskScore);
  * 201:
  * description: Empresa creada y archivos procesados.
  */
-router.post('/create', isAdmin, companyUploads, companyController.createCompany);
+// Implementación de validación previa al controlador
+router.post('/create', isAdmin, companyUploads, validate(createCompanySchema), companyController.createCompany);
 
 /**
  * @openapi
@@ -196,6 +198,6 @@ router.patch('/:cuit/documents', isAdmin, companyUploads, companyController.upda
  * 200:
  * description: Estado actualizado y registrado en historial.
  */
-router.patch('/:cuit/status', isAdmin, companyController.updateStatus);
+router.patch('/:cuit/status', isAdmin, validate(updateStatusSchema), companyController.updateStatus);
 
 module.exports = router;
