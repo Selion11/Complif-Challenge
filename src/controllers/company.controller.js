@@ -1,5 +1,3 @@
-const fs = require('fs'); 
-const path = require('path');
 const { Company, Document } = require('../models'); 
 const riskService = require('../services/riskCalculator.service');
 const logger = require('../utils/logger');
@@ -256,19 +254,23 @@ const updateStatus = async (req, res, next) => {
 
 const listCompanies = async (req, res, next) => {
     try {
-        const { pais, industria, page = 1, limit = 10 } = req.query;
+        const { nombre, pais, industria, status, page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
 
         const where = {};
+        
+        if (nombre) where.nombre = { [Op.iLike]: `%${nombre}%` }; 
         if (pais) where.pais = { [Op.iLike]: `%${pais}%` }; 
         if (industria) where.industria = { [Op.iLike]: `%${industria}%` };
+        
+        if (status) where.status = status; 
 
         const { count, rows } = await Company.findAndCountAll({
             where,
             limit: parseInt(limit),
             offset: parseInt(offset),
-            order: [['createdAt', 'DESC']]
-        }); 
+            order: [['createdAt', 'DESC']] 
+        });
 
         res.status(200).json({
             success: true,
