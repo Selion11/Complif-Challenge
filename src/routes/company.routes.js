@@ -1,10 +1,8 @@
 const express = require('express');
 const router = express.Router();
-
 const companyController = require('../controllers/company.controller');
 const companyUploads = require('../middlewares/upload.middleware');
 const { authenticate, isAdmin } = require('../middlewares/auth.middleware');
-
 const validate = require('../middlewares/validate.middleware');
 const { createCompanySchema, updateStatusSchema } = require('../validations/company.validation');
 
@@ -12,10 +10,9 @@ const { createCompanySchema, updateStatusSchema } = require('../validations/comp
  * @openapi
  * tags:
  * name: Companies
- * description: Gestión de legajos, cálculo de riesgo y trazabilidad de empresas
+ * description: Gestión de legajos y cálculo de riesgo
  */
 
-// Todas las rutas de este archivo requieren un token JWT válido
 router.use(authenticate);
 
 /**
@@ -23,7 +20,6 @@ router.use(authenticate);
  * /api/companies:
  * get:
  * summary: Listar todas las empresas
- * description: Permite filtrar por país o industria. Los Viewers solo ven su propia empresa.
  * tags: [Companies]
  * security:
  * - bearerAuth: []
@@ -41,67 +37,6 @@ router.use(authenticate);
  * description: Listado obtenido con éxito.
  */
 router.get('/', companyController.listCompanies);
-
-/**
- * @openapi
- * /api/companies/{cuit}:
- * get:
- * summary: Obtener detalle de una empresa
- * tags: [Companies]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: cuit
- * required: true
- * schema:
- * type: string
- * responses:
- * 200:
- * description: Información detallada de la entidad.
- */
-router.get('/:cuit', companyController.getCompanyDetail);
-
-/**
- * @openapi
- * /api/companies/{cuit}/documents:
- * get:
- * summary: Listar documentos de la empresa
- * tags: [Companies]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: cuit
- * required: true
- * schema:
- * type: string
- * responses:
- * 200:
- * description: Referencias a los documentos subidos.
- */
-router.get('/:cuit/documents', companyController.listDocuments);
-
-/**
- * @openapi
- * /api/companies/{cuit}/risk-score:
- * get:
- * summary: Obtener puntaje de riesgo automático
- * description: Calcula el riesgo basado en país, industria y completitud de legajo.
- * tags: [Companies]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: cuit
- * required: true
- * schema:
- * type: string
- * responses:
- * 200:
- * description: Resultado del cálculo de riesgo.
- */
-router.get('/:cuit/risk-score', companyController.getRiskScore);
 
 /**
  * @openapi
@@ -133,19 +68,46 @@ router.get('/:cuit/risk-score', companyController.getRiskScore);
  * format: binary
  * responses:
  * 201:
- * description: Empresa creada y archivos procesados.
+ * description: Empresa creada.
  */
-// Implementación de validación previa al controlador
 router.post('/create', isAdmin, companyUploads, validate(createCompanySchema), companyController.createCompany);
 
 /**
  * @openapi
+ * /api/companies/{cuit}:
+ * get:
+ * summary: Obtener detalle de una empresa
+ * tags: [Companies]
+ * parameters:
+ * - in: path
+ * name: cuit
+ * required: true
+ * schema:
+ * type: string
+ * responses:
+ * 200:
+ * description: Información detallada.
+ */
+router.get('/:cuit', companyController.getCompanyDetail);
+
+/**
+ * @openapi
  * /api/companies/{cuit}/documents:
+ * get:
+ * summary: Listar documentos de la empresa
+ * tags: [Companies]
+ * parameters:
+ * - in: path
+ * name: cuit
+ * required: true
+ * schema:
+ * type: string
+ * responses:
+ * 200:
+ * description: Lista de documentos.
  * patch:
  * summary: Actualizar un documento específico (Solo Admin)
  * tags: [Companies]
- * security:
- * - bearerAuth: []
  * parameters:
  * - in: path
  * name: cuit
@@ -165,17 +127,33 @@ router.post('/create', isAdmin, companyUploads, validate(createCompanySchema), c
  * 200:
  * description: Documento actualizado.
  */
+router.get('/:cuit/documents', companyController.listDocuments);
 router.patch('/:cuit/documents', isAdmin, companyUploads, companyController.updateSingleDocument);
+
+/**
+ * @openapi
+ * /api/companies/{cuit}/risk-score:
+ * get:
+ * summary: Obtener puntaje de riesgo
+ * tags: [Companies]
+ * parameters:
+ * - in: path
+ * name: cuit
+ * required: true
+ * schema:
+ * type: string
+ * responses:
+ * 200:
+ * description: Puntaje calculado.
+ */
+router.get('/:cuit/risk-score', companyController.getRiskScore);
 
 /**
  * @openapi
  * /api/companies/{cuit}/status:
  * patch:
- * summary: Cambiar estado de aprobación (Solo Admin)
- * description: Registra la transición en el historial de estados para auditoría.
+ * summary: Cambiar estado de aprobación
  * tags: [Companies]
- * security:
- * - bearerAuth: []
  * parameters:
  * - in: path
  * name: cuit
@@ -196,7 +174,7 @@ router.patch('/:cuit/documents', isAdmin, companyUploads, companyController.upda
  * type: string
  * responses:
  * 200:
- * description: Estado actualizado y registrado en historial.
+ * description: Estado actualizado.
  */
 router.patch('/:cuit/status', isAdmin, validate(updateStatusSchema), companyController.updateStatus);
 

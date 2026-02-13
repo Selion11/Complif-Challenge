@@ -3,21 +3,13 @@ const router = express.Router();
 
 /**
  * @openapi
- * tags:
- * name: System
- * description: Endpoints de monitoreo y estado del servidor
- */
-
-/**
- * @openapi
  * /health:
  * get:
- * summary: Verificar el estado del servicio
- * description: Retorna información sobre la disponibilidad, el tiempo de actividad (uptime) y la versión actual de la API.
- * tags: [System]
+ * summary: Estado del sistema
+ * description: Retorna el estado de salud de la API.
  * responses:
  * 200:
- * description: El servicio está operativo.
+ * description: El sistema está operativo.
  * content:
  * application/json:
  * schema:
@@ -25,38 +17,8 @@ const router = express.Router();
  * properties:
  * status:
  * type: string
- * example: UP
- * uptime:
- * type: number
- * example: 124.55
- * message:
- * type: string
- * example: OK
- * timestamp:
- * type: string
- * format: date-time
- * version:
- * type: string
- * example: 1.0.0
- * 503:
- * description: El servicio no está disponible o presenta errores internos.
+ * example: "UP"
  */
-router.get('/', (req, res) => {
-  const healthcheck = {
-    status: 'UP',
-    uptime: process.uptime(),
-    message: 'OK',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  };
-
-  try {
-    res.status(200).json(healthcheck);
-  } catch (error) {
-    healthcheck.message = error.message;
-    healthcheck.status = 'DOWN';
-    res.status(503).json(healthcheck);
-  }
-});
+router.get('/', (req, res) => res.json({ status: 'UP' }));
 
 module.exports = router;

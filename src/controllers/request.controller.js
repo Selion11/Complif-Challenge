@@ -4,6 +4,7 @@ const logger = require('../utils/logger');
 const createRequest = async (req, res, next) => {
   try {
     const { accion, descripcion } = req.body;
+    // IMPORTANTE: Asegúrate de que el middleware de auth cargue 'cuit' en req.user
     const cuit_empresa = req.user.cuit;
 
     const request = await SignatureRequest.create({
@@ -43,10 +44,12 @@ const signRequest = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'La solicitud ya no está pendiente' });
     }
 
-    const [signature, created] = await Signature.findOrCreate({
+    // Registrar la firma del usuario
+    await Signature.findOrCreate({
       where: { id_request: requestId, id_usuario: userId }
     });
 
+    // Traer todas las firmas actuales con sus grupos para validar reglas
     const currentSignatures = await Signature.findAll({
       where: { id_request: requestId },
       include: [{
@@ -55,18 +58,22 @@ const signRequest = async (req, res, next) => {
       }]
     });
 
+    // CORRECCIÓN CRÍTICA: Se cambió 'facultad' por 'nombre_regla' para coincidir con la DB
     const rules = await Rule.findAll({
-      where: { facultad: request.accion, cuit_empresa }
+      where: { 
+        nombre_regla: request.accion, 
+        cuit_empresa 
+      }
     });
 
+    // Validar si alguna regla de firma conjunta se cumple
     const isApproved = rules.some(rule => {
       const count = currentSignatures.filter(sig => 
-        sig.User.Groups.some(g => g.id === rule.grupo_id)
+        // CORRECCIÓN CRÍTICA: Se cambió 'grupo_id' por 'id_grupo' para coincidir con la DB
+        sig.User.Groups.some(g => g.id === rule.id_grupo)
       ).length;
       return count >= rule.cantidad_requerida;
     });
-
-    const oldStatus = request.estado;
 
     if (isApproved) {
       request.estado = 'COMPLETED';
@@ -76,16 +83,7 @@ const signRequest = async (req, res, next) => {
         event: 'SIGNATURE_REQUEST_COMPLETED',
         service: 'SignatureController',
         message: `Solicitud ${requestId} completada exitosamente`,
-        cuit: cuit_empresa,
-        facultad: request.accion
-      });
-    } else {
-      logger.info({
-        event: 'SIGNATURE_ADDED',
-        service: 'SignatureController',
-        message: `Usuario ${userId} firmó solicitud ${requestId}`,
-        cuit: cuit_empresa,
-        currentStatus: request.estado
+        cuit: cuit_empresa
       });
     }
 
@@ -95,6 +93,7 @@ const signRequest = async (req, res, next) => {
       firmas_actuales: currentSignatures.length 
     });
   } catch (error) {
+    console.error("ERROR EN SIGN_REQUEST:", error);
     next(error);
   }
 };

@@ -2,6 +2,8 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
+app.get('/', (req, res) => res.status(200).send('OK'));
+
 // Simulación de validación de formato CUIT (Mock) 
 app.post('/validate-cuit', (req, res) => {
   const { cuit } = req.body;

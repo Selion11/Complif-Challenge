@@ -1,36 +1,33 @@
 const logger = require('../utils/logger');
 
 const validate = (schema) => (req, res, next) => {
-  try {
-    schema.parse({
-      body: req.body,
-      query: req.query,
-      params: req.params,
-    });
-    next();
-  } catch (error) {
-    logger.warn({
-      event: 'VALIDATION_FAILED',
-      service: 'ValidationService',
-      actor: req.user ? req.user.username : 'anonymous',
-      path: req.originalUrl,
-      method: req.method,
-      cuit: req.body.cuit || req.params.cuit || 'N/A',
-      details: error.errors.map(err => ({
-        field: err.path.join('.'),
-        message: err.message
-      }))
-    });
+  const result = schema.safeParse({
+    body: req.body,
+    query: req.query,
+    params: req.params,
+  });
 
-    return res.status(400).json({
-      success: false,
-      message: 'Error de validación en los datos de entrada',
-      errors: error.errors.map(err => ({
-        field: err.path.join('.'),
-        message: err.message
-      }))
-    });
+  if (!result.success) {
+    // CORRECCIÓN AQUÍ: Acceso seguro a los errores de Zod
+    const errorDetails = (result.error?.issues || []).map(err => ({
+      field: err.path.join('.'),
+      message: err.message
+    }));
+
+    // Creamos un objeto de error para el Global Error Handler
+    const validationError = new Error('Error de validación en los datos de entrada');
+    validationError.statusCode = 400;
+    validationError.errors = errorDetails;
+
+    return next(validationError); 
   }
+
+  // Si la validación es exitosa, reemplazamos datos por los parseados
+  if (result.data.body) req.body = result.data.body;
+  if (result.data.query) req.query = result.data.query;
+  if (result.data.params) req.params = result.data.params;
+  
+  next();
 };
 
 module.exports = validate;

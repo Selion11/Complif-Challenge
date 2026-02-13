@@ -6,7 +6,7 @@ const ruleController = require('../controllers/rule.controller');
  * @openapi
  * tags:
  * name: Rules
- * description: Definición de reglas de negocio y combinatorias de firmas por empresa
+ * description: Definición de reglas de firma
  */
 
 /**
@@ -14,7 +14,6 @@ const ruleController = require('../controllers/rule.controller');
  * /api/rules:
  * post:
  * summary: Crear una nueva regla de firma
- * description: Define los requisitos de firma para una empresa (ej. 1 firma del Grupo A + 1 firma del Grupo B).
  * tags: [Rules]
  * security:
  * - bearerAuth: []
@@ -30,28 +29,14 @@ const ruleController = require('../controllers/rule.controller');
  * properties:
  * companyCuit:
  * type: string
- * example: "30111111118"
  * requirementType:
  * type: string
  * enum: [SIMPLE, COMBINED]
- * example: "COMBINED"
- * config:
- * type: object
- * description: Configuración detallada de los grupos requeridos.
  * responses:
  * 201:
- * description: Regla creada exitosamente.
- * 403:
- * description: Acceso denegado. Solo administradores pueden configurar reglas.
- */
-router.post('/', ruleController.createRule);
-
-/**
- * @openapi
- * /api/rules:
+ * description: Regla creada.
  * get:
  * summary: Consultar reglas de una empresa
- * description: Retorna las reglas de firma vigentes para una entidad específica.
  * tags: [Rules]
  * security:
  * - bearerAuth: []
@@ -61,13 +46,11 @@ router.post('/', ruleController.createRule);
  * required: true
  * schema:
  * type: string
- * description: CUIT de la empresa a consultar
  * responses:
  * 200:
- * description: Listado de reglas obtenido exitosamente.
- * 404:
- * description: Empresa no encontrada.
+ * description: Listado de reglas.
  */
+router.post('/', ruleController.createRule);
 router.get('/', ruleController.getRulesByCompany);
 
 module.exports = router;

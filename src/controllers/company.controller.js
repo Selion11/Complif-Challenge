@@ -247,44 +247,53 @@ const getCompanyDetail = async (req, res, next) => {
 
 const updateStatus = async (req, res, next) => {
     try {
-        const { cuit } = req.params;
+        // 1. Acceso seguro a parámetros
+        const cuit = req.params.cuit;
         const { status, comentario } = req.body; 
 
+        // 2. Validación de existencia
         const company = await Company.findByPk(cuit);
         if (!company) {
             const error = new Error('Empresa no encontrada');
             error.statusCode = 404;
-            throw error;
+            return next(error); // Usamos next en lugar de throw para consistencia
         }
 
         const oldStatus = company.status;
 
+        // 3. Actualización de la empresa
         await company.update({ status });
 
+        // 4. Creación del historial (Punto crítico de error 500)
+        // Usamos req.user?.id para evitar crash si el objeto user no existe
         await StatusHistory.create({
             cuit_empresa: cuit,
             estado_anterior: oldStatus,
             estado_nuevo: status,
-            usuario_id: req.user.id,
+            usuario_id: req.user?.id || null, 
             comentario: comentario || 'Cambio de estado manual'
         });
 
+        // 5. Logging seguro
         logger.info({
             event: 'STATUS_UPDATED',
             service: 'StatusService',
             message: `Cambio de estado para ${cuit}`,
             cuit: cuit,
-            actor: req.user.id,
+            actor: req.user?.id || 'SYSTEM', 
             oldStatus: oldStatus,
             newStatus: status
         });
 
+        // 6. Respuesta exitosa
         res.status(200).json({
             success: true,
             message: `Estado actualizado a ${status}`,
             data: company
         });
+
     } catch (error) {
+        // Si hay un error de Sequelize (ej: ENUM inválido), llegará al errorHandler global
         next(error);
     }
 };

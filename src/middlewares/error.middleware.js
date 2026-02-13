@@ -1,33 +1,26 @@
 const logger = require('../utils/logger');
 
 const errorHandler = (err, req, res, next) => {
-  // 1. Manejo específico para errores de Multer (Límites de tamaño, etc)
-  if (err.code === 'LIMIT_FILE_SIZE') {
-    err.message = 'El archivo es demasiado grande. Máximo 5MB.';
-    err.statusCode = 400;
-  }
-
-  // 2. Logging enriquecido
-  logger.error({
-    service: 'GlobalErrorHandler', 
-    message: err.message,
-    method: req.method,
-    url: req.url,
-    // Agregamos el ID de la transacción o el body para saber qué rompió el server
-    requestId: req.headers['x-request-id'] || 'N/A', 
-    stack: err.stack,
-  });
-
   const statusCode = err.statusCode || 500;
   
-  res.status(statusCode).json({
+  // Mantenemos tu bloque de debug pero más limpio
+  if (statusCode === 500) {
+      console.log("\n🔥 ERROR 500 DETECTADO:", err.message);
+  }
+
+  const errorResponse = {
     success: false,
-    error: err.message || 'Internal Server Error',
-    // Información extra para el desarrollador
+    message: err.message || 'Internal Server Error',
     timestamp: new Date().toISOString(),
-    path: req.url,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : {}
-  });
+    path: req.url
+  };
+
+  // Solo enviamos 'errors' si realmente es un array (evita el crash del map)
+  if (err.errors && Array.isArray(err.errors)) {
+    errorResponse.errors = err.errors;
+  }
+
+  res.status(statusCode).json(errorResponse);
 };
 
 module.exports = errorHandler;

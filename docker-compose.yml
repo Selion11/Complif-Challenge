@@ -16,7 +16,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  
+
   cuit-validator:
     build: 
       context: ./cuit-validator
@@ -24,8 +24,14 @@ services:
     ports:
       - "3001:3001"
     restart: always
+    healthcheck:
+      # nc -z verifica si el puerto 3001 está abierto
+      test: ["CMD", "nc", "-z", "localhost", "3001"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
-  # Servicio de validación: Corre los tests y muere
   run_tests:
     build: .
     container_name: complif_tester
@@ -41,6 +47,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      cuit-validator:
+        # AHORA LOS TESTS ESPERAN AL VALIDADOR
+        condition: service_healthy
 
   api:
     build: .
@@ -53,6 +62,7 @@ services:
     environment:
       - DB_HOST=db
       - PORT=8080
+      - NODE_ENV=production
     volumes:
       - .:/app
       - /app/node_modules
@@ -60,7 +70,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      # LA MAGIA: Solo arranca si los tests terminaron con éxito (exit 0)
       run_tests:
         condition: service_completed_successfully
     healthcheck:

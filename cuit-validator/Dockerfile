@@ -4,6 +4,8 @@ FROM node:18-alpine
 # Creamos el directorio de trabajo
 WORKDIR /app
 
+RUN apk add --no-cache curl
+
 # Copiamos solo los archivos de dependencias para aprovechar el cache de Docker
 COPY package*.json ./
 

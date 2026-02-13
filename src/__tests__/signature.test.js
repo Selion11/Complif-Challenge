@@ -1,42 +1,77 @@
 const request = require('supertest');
 const app = require('../app');
-const { SignatureRequest, Rule, Group, User } = require('../models');
+const sequelize = require('../config/database');
+const { SignatureRequest, Rule, Group, User, Company } = require('../models');
 const jwt = require('jsonwebtoken');
 
-describe('Signature Engine (Part 1 Logic)', () => {
+describe('Signature Engine Logic', () => {
     let token;
     let requestId;
+    const testCuit = '30111111118';
 
     beforeAll(async () => {
-        const groupA = await Group.create({ nombre: 'Grupo A' });
-        const userA = await User.create({ username: 'signerA', role: 'admin' });
+        await sequelize.sync({ force: true });
+
+        await Company.create({
+            cuit: testCuit,
+            nombre: 'Firma S.A.',
+            pais: 'Argentina',
+            industria: 'Tech'
+        });
+
+        const groupA = await Group.create({ 
+            nombre: 'Grupo A', 
+            cuit_empresa: testCuit 
+        });
+
+        const userA = await User.create({ 
+            username: 'signerA', 
+            password: 'password123',
+            role: 'admin',
+            cuit_empresa: testCuit
+        });
+
+        // Usamos el helper de Sequelize para la tabla intermedia UserGroups
         await userA.addGroup(groupA);
 
         await Rule.create({
-            facultad: 'REQUEST_LOAN',
-            grupo_id: groupA.id,
-            cantidad_requerida: 1
+            nombre_regla: 'REQUEST_LOAN', 
+            id_grupo: groupA.id,          
+            cantidad_requerida: 1,
+            cuit_empresa: testCuit
         });
 
-        token = jwt.sign({ id: userA.id, role: 'admin' }, process.env.JWT_SECRET || 'secret');
+        // Importante: Incluimos el 'cuit' en el token porque el controlador lo usa (req.user.cuit)
+        token = jwt.sign(
+            { id: userA.id, role: 'admin', cuit: testCuit }, 
+            process.env.JWT_SECRET || 'secret'
+        );
     });
 
-    it('Debería crear una solicitud de firma para la facultad REQUEST_LOAN', async () => {
-        const res = await request(app)
-            .post('/api/signatures/request')
+    afterAll(async () => {
+        await sequelize.close();
+    });
+
+    it('Debería crear una solicitud de firma y completarla con 1 firma', async () => {
+        // 1. Crear Solicitud
+        const createRes = await request(app)
+            .post('/api/requests')
             .set('Authorization', `Bearer ${token}`)
-            .send({ facultad: 'REQUEST_LOAN', cuit_empresa: '30111111118' });
+            .send({ 
+                accion: 'REQUEST_LOAN', 
+                descripcion: 'Préstamo Expansión' 
+            });
 
-        expect(res.statusCode).toEqual(201);
-        requestId = res.body.data.id;
-    });
+        expect(createRes.statusCode).toEqual(201);
+        // Según tu controlador: res.status(201).json({ success: true, data: request });
+        requestId = createRes.body.data.id;
 
-    it('Debería aprobar la solicitud cuando firma el usuario del Grupo A', async () => {
-        const res = await request(app)
-            .post(`/api/signatures/${requestId}/sign`)
+        // 2. Firmar Solicitud
+        const signRes = await request(app)
+            .post(`/api/requests/${requestId}/sign`)
             .set('Authorization', `Bearer ${token}`);
 
-        // Al ser 1 de A, el estado debería pasar a COMPLETED
-        expect(res.body.data.estado).toBe('COMPLETED');
+        expect(signRes.statusCode).toEqual(200);
+        expect(signRes.body.estado).toBe('COMPLETED');
     });
 });
