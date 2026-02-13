@@ -35,7 +35,15 @@ const login = async (req, res, next) => {
       role: user.role
     });
 
-    res.json({ success: true, token });
+    res.json({ 
+      success: true, 
+      token,
+      user: { 
+        username: user.username, 
+        role: user.role, 
+        cuit: user.cuit_empresa 
+      }
+     });
   } catch (error) {
     next(error);
   }
