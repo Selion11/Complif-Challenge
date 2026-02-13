@@ -1,9 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api',
+  // Esto suma la URL del .env + el prefijo /api
+  baseURL: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api`,
 });
-
 // Interceptor para inyectar el token en cada petición
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token'); 

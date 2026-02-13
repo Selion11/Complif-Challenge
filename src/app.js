@@ -3,6 +3,10 @@ const errorHandler = require('./middlewares/error.middleware');
 const { authenticate } = require('./middlewares/auth.middleware');
 const logger = require('./utils/logger');
 
+// CARGA DE MODELOS Y RELACIONES
+// Importar el index dispara la ejecución de models.relations.js
+require('./models'); 
+
 // Swagger
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -17,7 +21,7 @@ const requestRoutes = require('./routes/request.routes');
 
 const app = express();
 
-// Configuración de Swagger (puedes mover esto aquí para limpiar el server.js)
+// Configuración de Swagger
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -50,7 +54,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// DOCS: Swagger UI (Debe ir antes de las rutas 404)
+// DOCS: Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // PUBLIC ROUTES
