@@ -1,13 +1,14 @@
-import './globals.css'; 
+// src/app/layout.tsx
+import './globals.css';
+import { Toaster } from 'react-hot-toast';
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <Toaster position="top-right" /> 
+        {children}
+      </body>
     </html>
   );
 }
