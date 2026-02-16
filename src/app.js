@@ -1,6 +1,7 @@
 const express = require('express');
 const errorHandler = require('./middlewares/error.middleware');
 const { authenticate } = require('./middlewares/auth.middleware');
+const cors = require('cors');
 const logger = require('./utils/logger');
 
 // 1. CARGA DE MODELOS Y RELACIONES
@@ -59,6 +60,13 @@ try {
 }
 
 // MIDDLEWARES
+app.use(cors({
+    origin: 'http://localhost:3000', // Permitir solo tu frontend
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true // Permitir cookies/headers de auth si los usas
+}));
+
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true })); 
 
