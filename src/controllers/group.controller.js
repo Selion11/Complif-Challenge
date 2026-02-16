@@ -1,5 +1,6 @@
 const Group = require('../models/group.model');
 const User = require('../models/user.model');
+const logger = require('../utils/logger');
 
 const createGroup = async (req, res, next) => {
   try {
