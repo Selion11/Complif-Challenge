@@ -23,7 +23,6 @@ User.init({
     type: DataTypes.STRING,
     allowNull: false
   },
-  // Añadimos el rol según el PDF 
   role: {
     type: DataTypes.ENUM('admin', 'viewer'),
     allowNull: false,

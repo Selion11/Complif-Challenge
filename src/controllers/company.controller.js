@@ -1,32 +1,49 @@
-const { Company, Document, StatusHistory } = require('../models'); 
+const { Company, Document, StatusHistory, User } = require('../models'); 
 const riskService = require('../services/riskCalculator.service');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const axios = require('axios');
 
-
-const createCompany = async (req, res, next) => { 
-    console.log("===> PETICIÓN RECIBIDA EN CREATECOMPANY");
+const getUsersByCompany = async (req, res, next) => {
     try {
-        const { nombre, cuit, pais, industria } = req.body;
+        const { cuit } = req.params;
+        const users = await User.findAll({ 
+            where: { cuit_empresa: cuit },
+            attributes: ['id', 'username', 'role'] 
+        });
+        res.json({ success: true, data: users });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Crea una nueva empresa y procesa su legajo inicial.
+ * Se espera que el validador maneje 'name', 'country' e 'industry'.
+ */
+const createCompany = async (req, res, next) => { 
+    try {
+        const { name, cuit, country, industry } = req.body;
         
-        const requiredFields = ['nombre', 'cuit', 'pais', 'industria'];
+        const requiredFields = ['name', 'cuit', 'country', 'industry'];
         const missingField = requiredFields.find(field => !req.body[field]);
         if (missingField) {
             const error = new Error(`El campo '${missingField}' es obligatorio`);
             error.statusCode = 400;
-            throw error;
+            return next(error);
         }
 
         try {
             const response = await axios.post('http://cuit-validator:3001/validate-cuit', { cuit });
             if (!response.data.valid) {
-                throw new Error('Validación externa de CUIT fallida');
+                const error = new Error('Validación externa de CUIT fallida');
+                error.statusCode = 400;
+                return next(error);
             }
         } catch (error) {
             const err = new Error('El CUIT no pudo ser validado externamente');
             err.statusCode = 400;
-            throw err;
+            return next(err);
         }
 
         const docs = req.files || {};
@@ -36,12 +53,11 @@ const createCompany = async (req, res, next) => {
             polizaSeguro: !!(docs.polizaSeguro && docs.polizaSeguro.length > 0)
         };
 
-        const missingDocs = Object.keys(checkDocs).filter(key => !checkDocs[key]);
-        const isComplete = missingDocs.length === 0;
+        const isComplete = Object.values(checkDocs).every(val => val === true);
 
         const score = riskService.calculateRiskScore({
-            pais,
-            industria,
+            pais: country,
+            industria: industry,
             hasDocuments: isComplete 
         }, 'CompanyController');
 
@@ -52,14 +68,14 @@ const createCompany = async (req, res, next) => {
         if (existingCompany) {
             const error = new Error(`Ya existe una empresa registrada con el CUIT: ${cuit}`);
             error.statusCode = 409;
-            throw error;
+            return next(error);
         }
 
         const company = await Company.create({
             cuit,
-            nombre,
-            pais,
-            industria,
+            name, 
+            country: country,
+            industry: industry,
             riskScore: score,
             status: initialStatus
         });
@@ -68,60 +84,64 @@ const createCompany = async (req, res, next) => {
             cuit_empresa: cuit,
             estado_anterior: null,
             estado_nuevo: initialStatus,
-            usuario_id: req.user.id,
-            comentario: 'Registro inicial de la empresa'
-        })
+            usuario_id: req.user?.id || 1,
+            comentario: 'Registro inicial de la empresa y creación de legajo'
+        });
 
         if (req.files) {
             const documentEntries = [];
             for (const field in req.files) {
-                const file = req.files[field][0];
-                documentEntries.push({
-                    tipo: field,
-                    ruta_archivo: file.path,
-                    cuit_empresa: cuit
-                });
+                const fileArray = req.files[field];
+                if (fileArray && fileArray.length > 0) {
+                    const file = fileArray[0];
+                    documentEntries.push({
+                        tipo: field,
+                        ruta_archivo: file.path,
+                        cuit_empresa: cuit
+                    });
+                }
             }
-            await Document.bulkCreate(documentEntries);
+            if (documentEntries.length > 0) {
+                await Document.bulkCreate(documentEntries);
+            }
         }
 
         logger.info({
-            event: 'COMPANY_CREATED', // Evento claro para el "webhook" mock
+            event: 'COMPANY_CREATED',
             service: 'CompanyController',
-            message: `Nueva empresa registrada: ${nombre}`,
+            message: `Nueva empresa registrada: ${name}`,
             cuit: cuit,
-            actor: req.user.id, // Quién disparó la creación
+            actor: req.user?.id || 'System',
             riskScore: score,
             status: initialStatus
         });
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             message: requiresManualReview ? "Registro recibido. Requiere revisión." : "Aprobado automáticamente.",
             data: {
-                company: company,
+                company,
                 riskAnalysis: {
                     score,
                     status: initialStatus,
                     isComplete,
-                    missingDocuments: missingDocs
+                    missingDocuments: Object.keys(checkDocs).filter(k => !checkDocs[k])
                 }
             }
         });
 
     } catch (error) {
-        console.error("===> ERROR EN CREATECOMPANY:", error);
         next(error);
     }
 };
 
+/**
+ * Lista los documentos de una empresa específica.
+ */
 const listDocuments = async (req, res, next) => {
     try {
         const { cuit } = req.params;
-
-        const documents = await Document.findAll({
-            where: { cuit_empresa: cuit }
-        });
+        const documents = await Document.findAll({ where: { cuit_empresa: cuit } });
 
         res.status(200).json({
             success: true,
@@ -135,108 +155,123 @@ const listDocuments = async (req, res, next) => {
     }
 };
 
+/**
+ * Actualiza o sube un documento individual.
+ */
 const updateSingleDocument = async (req, res, next) => { 
     try {
-        const { cuit } = req.params;
-        const files = req.files || {};
-
-        if (Object.keys(files).length === 0) {
-            const error = new Error('No se recibió archivo');
+        const { cuit } = req.params; // ✅ Ahora llegará bien gracias a tu cambio en el router [cite: 2026-02-18]
+        
+        if (!cuit) {
+            const error = new Error('El CUIT es necesario en la URL');
             error.statusCode = 400;
-            throw error;
+            return next(error);
+        }
+
+        const files = req.files || {};
+        if (Object.keys(files).length === 0) {
+            const error = new Error('No se recibió ningún archivo binario');
+            error.statusCode = 400;
+            return next(error);
         }
 
         const companyData = await Company.findByPk(cuit);
         if (!companyData) {
-            const error = new Error('Empresa no encontrada en la base de datos');
+            const error = new Error('Empresa no registrada en el sistema');
             error.statusCode = 404;
-            throw error;
+            return next(error);
         }
 
+        // Procesamos los archivos que Multer dejó en req.files
         for (const field in files) {
-            const file = files[field][0];
-            await Document.upsert({
-                tipo: field,
-                ruta_archivo: file.path,
-                cuit_empresa: cuit
-            });
+            const fileArray = files[field];
+            if (fileArray && fileArray.length > 0) {
+                const file = fileArray[0];
+                await Document.upsert({
+                    tipo: field,
+                    ruta_archivo: file.path,
+                    cuit_empresa: cuit
+                });
+            }
         }
 
+        // Recalculamos el estado de completitud
         const currentDocs = await Document.findAll({ where: { cuit_empresa: cuit } });
         const requiredTypes = ['certificadoFiscal', 'constanciaInscripcion', 'polizaSeguro'];
         const isComplete = requiredTypes.every(type => currentDocs.some(d => d.tipo === type));
 
+        // ✅ CORRECCIÓN TÉCNICA: industra -> industry
         const score = riskService.calculateRiskScore({
-            pais: companyData.pais, 
-            industria: companyData.industria,
+            pais: companyData.country, 
+            industria: companyData.industry, // Aseguramos que use la propiedad correcta del modelo
             hasDocuments: isComplete
         }, 'CompanyController');
 
         await companyData.update({ riskScore: score });
 
-        logger.info({
-            event: 'DOCUMENT_UPLOADED',
-            service: 'CompanyController',
-            message: `Documentación actualizada para CUIT ${cuit}`,
-            cuit: cuit,
-            actor: req.user.id,
-            newRiskScore: score,
-            isComplete: isComplete
+        return res.status(200).json({
+            success: true,
+            message: 'Documento procesado y score actualizado',
+            data: { 
+                cuit, 
+                newRiskScore: score, 
+                isComplete,
+                documentos: currentDocs 
+            }
         });
+    } catch (error) {
+        next(error); 
+    }
+};
+
+/**
+ * Obtiene el score de riesgo actual.
+ */
+const getRiskScore = async (req, res, next) => {
+    try {
+        const { cuit } = req.params;
+        const company = await Company.findByPk(cuit, {
+            attributes: ['cuit', 'name', 'riskScore', 'updatedAt']
+        });
+
+        if (!company) {
+            const error = new Error(`No se encontró ninguna empresa con el CUIT: ${cuit}`);
+            error.statusCode = 404;
+            return next(error);
+        }
 
         res.status(200).json({
             success: true,
-            data: { cuit, newRiskScore: score, isComplete }
+            data: {
+                cuit: company.cuit,
+                name: company.name,
+                riskScore: company.riskScore,
+                status: company.riskScore >= 70 ? 'PENDING_REVIEW' : 'AUTO_APPROVED',
+                lastUpdate: company.updatedAt
+            }
         });
     } catch (error) {
         next(error);
     }
 };
 
-const getRiskScore = async (req,res,next) => {
-    try {
-        const { cuit } = req.params;
-
-        const company = await Company.findByPk(cuit, {
-            attributes: ['cuit', 'nombre', 'riskScore', 'updatedAt']
-        });
-
-        if (!company) {
-            const error = new Error(`No se encontró ninguna empresa con el CUIT: ${cuit}`);
-            error.statusCode = 404;
-            throw error;
-        }
-
-        const score = company.riskScore;
-        const requiresManualReview = score >= 70;
-
-        res.status(200).json({
-            success: true,
-            data: {
-                cuit: company.cuit,
-                nombre: company.nombre,
-                riskScore: score,
-                status: requiresManualReview ? 'PENDING_REVIEW' : 'AUTO_APPROVED',
-                lastUpdate: company.updatedAt
-            }
-        });
-
-    } catch (error) {
-        next(error);
-    }
-}
-
+/**
+ * Obtiene el detalle completo de una empresa incluyendo documentos.
+ */
 const getCompanyDetail = async (req, res, next) => {
     try {
         const { cuit } = req.params;
         const company = await Company.findByPk(cuit, {
-            include: [{ model: Document, as: 'documentos' }] 
+            include: [{ 
+                model: Document, 
+                as: 'documentos' 
+            }] 
         });
 
         if (!company) {
             const error = new Error('Empresa no encontrada');
             error.statusCode = 404;
-            throw error;
+            return next(error);
         }
 
         res.status(200).json({ success: true, data: company });
@@ -245,70 +280,66 @@ const getCompanyDetail = async (req, res, next) => {
     }
 };
 
+/**
+ * Actualiza manualmente el estado de aprobación.
+ */
 const updateStatus = async (req, res, next) => {
     try {
-        // 1. Acceso seguro a parámetros
         const cuit = req.params.cuit;
-        const { status, comentario } = req.body; 
+        const { status, comment } = req.body; 
 
-        // 2. Validación de existencia
         const company = await Company.findByPk(cuit);
         if (!company) {
             const error = new Error('Empresa no encontrada');
             error.statusCode = 404;
-            return next(error); // Usamos next en lugar de throw para consistencia
+            return next(error);
         }
 
         const oldStatus = company.status;
-
-        // 3. Actualización de la empresa
         await company.update({ status });
 
-        // 4. Creación del historial (Punto crítico de error 500)
-        // Usamos req.user?.id para evitar crash si el objeto user no existe
         await StatusHistory.create({
             cuit_empresa: cuit,
             estado_anterior: oldStatus,
             estado_nuevo: status,
             usuario_id: req.user?.id || null, 
-            comentario: comentario || 'Cambio de estado manual'
+            comentario: comment || 'Cambio de estado manual'
         });
 
-        // 5. Logging seguro
-        logger.info({
-            event: 'STATUS_UPDATED',
-            service: 'StatusService',
-            message: `Cambio de estado para ${cuit}`,
-            cuit: cuit,
-            actor: req.user?.id || 'SYSTEM', 
-            oldStatus: oldStatus,
-            newStatus: status
-        });
-
-        // 6. Respuesta exitosa
         res.status(200).json({
             success: true,
             message: `Estado actualizado a ${status}`,
             data: company
         });
-
     } catch (error) {
-        // Si hay un error de Sequelize (ej: ENUM inválido), llegará al errorHandler global
         next(error);
     }
 };
 
+const getStatusHistory = async (req, res, next) => {
+    try {
+        const { cuit } = req.params;
+        const history = await StatusHistory.findAll({
+            where: { cuit_empresa: cuit },
+            include: [{ model: User, attributes: ['username'] }],
+            order: [['createdAt', 'DESC']]
+        });
+        res.json({ success: true, data: history });
+    } catch (error) { next(error); }
+};
+
+/**
+ * Lista empresas con filtros opcionales (mapeados a country/industry para la query).
+ */
 const listCompanies = async (req, res, next) => {
     try {
-        const { nombre, pais, industria, status, page = 1, limit = 10 } = req.query;
+        const { name, country, industry, status, page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
-
         const where = {};
         
-        if (nombre) where.nombre = { [Op.iLike]: `%${nombre}%` }; 
-        if (pais) where.pais = { [Op.iLike]: `%${pais}%` }; 
-        if (industria) where.industria = { [Op.iLike]: `%${industria}%` };
-        
+        if (name) where.name = { [Op.iLike]: `%${name}%` }; 
+        if (country) where.country = { [Op.iLike]: `%${country}%` }; 
+        if (industry) where.industry = { [Op.iLike]: `%${industry}%` };
         if (status) where.status = status; 
 
         const { count, rows } = await Company.findAndCountAll({
@@ -328,7 +359,6 @@ const listCompanies = async (req, res, next) => {
             },
             data: rows
         });
-
     } catch (error) {
         next(error);
     }
@@ -341,5 +371,7 @@ module.exports = {
     getRiskScore,
     getCompanyDetail,
     updateStatus,
-    listCompanies
+    listCompanies,
+    getUsersByCompany,
+    getStatusHistory
 };

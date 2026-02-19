@@ -14,7 +14,7 @@ export default function LoginPage() {
     e.preventDefault();
     try {
       await login(username, password);
-      router.push('/dashboard'); // Solo si el login es exitoso
+      router.push('/dashboard'); 
     } catch (err: any) {
       setError(err.response?.data?.message || 'Credenciales incorrectas');
     }

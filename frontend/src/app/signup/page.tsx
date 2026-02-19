@@ -25,7 +25,7 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await signup(formData); // Llamamos al servicio que acabamos de actualizar
+      await signup(formData);
       router.push('/login?registered=true'); 
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al registrar usuario');
@@ -66,7 +66,7 @@ export default function SignupPage() {
             value={formData.role}
             onChange={(e) => setFormData({
                 ...formData, 
-                role: e.target.value as 'admin' | 'viewer' // <--- El "as" soluciona el error ts(2322)
+                role: e.target.value as 'admin' | 'viewer' 
             })}
             >
             <option value="viewer">Viewer</option>

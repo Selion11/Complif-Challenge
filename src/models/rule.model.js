@@ -9,7 +9,6 @@ Rule.init({
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true
   },
-  // Restringimos el nombre de la regla a los tipos de la imagen
   nombre_regla: {
     type: DataTypes.ENUM(
       'CREATE_WIRE',
@@ -31,7 +30,7 @@ Rule.init({
     type: DataTypes.INTEGER,
     allowNull: false,
     validate: {
-      min: 1 // Aseguramos que al menos se requiera un firmante
+      min: 1 
     }
   },
   cuit_empresa: {

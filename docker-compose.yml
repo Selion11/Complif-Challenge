@@ -78,6 +78,23 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+  
+  frontend:
+    build:
+      context: ./frontend
+    container_name: complif_frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   postgres_data:

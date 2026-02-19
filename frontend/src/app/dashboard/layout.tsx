@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { logout } from '@/services/auth.service';
 import Link from 'next/link';
-import { Toaster } from 'react-hot-toast'; // Importamos el sistema de notificaciones
+import { Toaster } from 'react-hot-toast'; 
 import { LayoutDashboard, PlusCircle, LogOut, Building2, PenTool } from 'lucide-react';
 
 export default function DashboardLayout({
@@ -14,7 +14,7 @@ export default function DashboardLayout({
   const router = useRouter();
 
   const handleLogout = () => {
-    logout(); // Limpia localStorage y Cookies
+    logout(); 
     router.push('/login');
   };
 

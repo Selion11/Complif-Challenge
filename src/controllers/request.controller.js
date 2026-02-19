@@ -4,7 +4,6 @@ const logger = require('../utils/logger');
 const createRequest = async (req, res, next) => {
   try {
     const { accion, descripcion } = req.body;
-    // IMPORTANTE: Asegúrate de que el middleware de auth cargue 'cuit' en req.user
     const cuit_empresa = req.user.cuit;
 
     const request = await SignatureRequest.create({
@@ -44,12 +43,10 @@ const signRequest = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'La solicitud ya no está pendiente' });
     }
 
-    // Registrar la firma del usuario
     await Signature.findOrCreate({
       where: { id_request: requestId, id_usuario: userId }
     });
 
-    // Traer todas las firmas actuales con sus grupos para validar reglas
     const currentSignatures = await Signature.findAll({
       where: { id_request: requestId },
       include: [{
@@ -58,7 +55,6 @@ const signRequest = async (req, res, next) => {
       }]
     });
 
-    // CORRECCIÓN CRÍTICA: Se cambió 'facultad' por 'nombre_regla' para coincidir con la DB
     const rules = await Rule.findAll({
       where: { 
         nombre_regla: request.accion, 
@@ -66,10 +62,8 @@ const signRequest = async (req, res, next) => {
       }
     });
 
-    // Validar si alguna regla de firma conjunta se cumple
     const isApproved = rules.some(rule => {
       const count = currentSignatures.filter(sig => 
-        // CORRECCIÓN CRÍTICA: Se cambió 'grupo_id' por 'id_grupo' para coincidir con la DB
         sig.User.Groups.some(g => g.id === rule.id_grupo)
       ).length;
       return count >= rule.cantidad_requerida;
@@ -98,4 +92,23 @@ const signRequest = async (req, res, next) => {
   }
 };
 
-module.exports = { createRequest, signRequest };
+const getAllRequests = async (req, res, next) => {
+  try {
+    const cuit_empresa = req.user.cuit; // Obtenemos el CUIT del token del usuario
+
+    const requests = await SignatureRequest.findAll({
+      where: { cuit_empresa },
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      data: requests 
+    });
+  } catch (error) {
+    console.error("ERROR EN GET_ALL_REQUESTS:", error);
+    next(error);
+  }
+};
+
+module.exports = { createRequest, signRequest, getAllRequests };

@@ -1,33 +1,55 @@
 import api from './api';
 
-export const getCompanies = async (filters: any = {}) => {
-  // Coincide con GET /api/companies
-  const response = await api.get('/companies', { params: filters });
+export const getCompanies = async (filters: { country?: string; industry?: string; name?: string; page?: number } = {}) => {
+  const apiParams: any = {};
+  
+  if (filters.country) apiParams.country = filters.country;
+  if (filters.industry) apiParams.industry = filters.industry;
+  if (filters.name) apiParams.name = filters.name;
+  if (filters.page) apiParams.page = filters.page;
+  apiParams.limit = 10; 
+
+  const response = await api.get('/companies', { params: apiParams });
   return response.data;
 };
 
 export const getCompanyDetail = async (cuit: string) => {
-  // Coincide con GET /api/companies/:cuit
   const response = await api.get(`/companies/${cuit}`);
   return response.data;
 };
 
 export const createCompany = async (formData: FormData) => {
-  // Coincide con POST /api/companies/create
-  const response = await api.post('/companies/create', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+  const response = await api.post('/companies/create', formData);
+  return response.data;
+};
+
+
+export const getRiskScore = async (cuit: string) => {
+  const response = await api.get(`/companies/${cuit}/risk-score`);
+  return response.data;
+};
+
+export const updateSingleDocument = async (cuit: string, formData: FormData) => {
+  const response = await api.patch(`/companies/${cuit}/documents`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
   });
   return response.data;
 };
 
+
+export const getUsersByCompany = async (cuit: string) => {
+  const response = await api.get(`/companies/${cuit}/users`);
+  return response.data;
+};
+
 export const updateCompanyStatus = async (cuit: string, status: string, comment: string) => {
-  // Coincide con PATCH /api/companies/:cuit/status
   const response = await api.patch(`/companies/${cuit}/status`, { status, comment });
   return response.data;
 };
 
-export const getRiskScore = async (cuit: string) => {
-  // Coincide con GET /api/companies/:cuit/risk-score
-  const response = await api.get(`/companies/${cuit}/risk-score`);
+export const getStatusHistory = async (cuit: string) => {
+  const response = await api.get(`/companies/${cuit}/status-history`);
   return response.data;
 };

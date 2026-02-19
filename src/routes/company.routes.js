@@ -38,6 +38,52 @@ router.use(authenticate);
  */
 router.get('/', companyController.listCompanies);
 
+
+/**
+ * @openapi
+ * /api/companies/{cuit}/users:
+ * get:
+ * summary: Obtener usuarios por empresa
+ * description: Retorna la lista de usuarios asociados a un CUIT específico.
+ * tags: [Companies]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: cuit
+ * required: true
+ * schema:
+ * type: string
+ * description: CUIT de la empresa para filtrar usuarios
+ * responses:
+ * 200:
+ * description: Listado de usuarios obtenido con éxito.
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * success:
+ * type: boolean
+ * data:
+ * type: array
+ * items:
+ * type: object
+ * properties:
+ * id:
+ * type: string
+ * format: uuid
+ * username:
+ * type: string
+ * role:
+ * type: string
+ * 401:
+ * description: No autorizado - Token faltante o inválido.
+ * 404:
+ * description: Empresa no encontrada.
+ */
+router.get('/:cuit/users', companyController.getUsersByCompany);
+
 /**
  * @openapi
  * /api/companies/create:
@@ -177,5 +223,60 @@ router.get('/:cuit/risk-score', companyController.getRiskScore);
  * description: Estado actualizado.
  */
 router.patch('/:cuit/status', isAdmin, validate(updateStatusSchema), companyController.updateStatus);
+
+/**
+ * @openapi
+ * /api/companies/{cuit}/status-history:
+ * get:
+ * summary: Obtener historial de estados de una empresa
+ * description: Retorna una lista cronológica de todos los cambios de estado que ha tenido la empresa, incluyendo comentarios y el usuario que realizó la acción.
+ * tags: [Companies]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: cuit
+ * required: true
+ * schema:
+ * type: string
+ * description: CUIT de la empresa para consultar su historial
+ * responses:
+ * 200:
+ * description: Historial de auditoría obtenido con éxito.
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * success:
+ * type: boolean
+ * data:
+ * type: array
+ * items:
+ * type: object
+ * properties:
+ * id:
+ * type: string
+ * format: uuid
+ * estado_anterior:
+ * type: string
+ * estado_nuevo:
+ * type: string
+ * comentario:
+ * type: string
+ * createdAt:
+ * type: string
+ * format: date-time
+ * User:
+ * type: object
+ * properties:
+ * username:
+ * type: string
+ * 401:
+ * description: No autorizado.
+ * 404:
+ * description: Empresa no encontrada.
+ */
+router.get('/:cuit/status-history', authenticate, companyController.getStatusHistory);
 
 module.exports = router;

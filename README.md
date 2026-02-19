@@ -57,6 +57,4 @@ Para cumplir con el requerimiento de monitoreo, se implementó un sistema de log
 * **Ubicación**: Los logs se almacenan en `logs/combined.log` y se emiten por consola.
 * **Eventos**: Se notifican acciones críticas como `COMPANY_CREATED`, `STATUS_UPDATED` y `SIGNATURE_COMPLETED`.
 
-## Documentación Técnica
 
-Para una explicación detallada de la arquitectura orientada a la navegación por

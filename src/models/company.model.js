@@ -7,15 +7,15 @@ const Company = sequelize.define('Company', {
     primaryKey: true,
     allowNull: false
   },
-  nombre: {
+  name: {
     type: DataTypes.STRING,
     allowNull: false
   },
-  pais: {
+  country: {
     type: DataTypes.STRING,
     allowNull: false
   },
-  industria: {
+  industry: {
     type: DataTypes.STRING,
     allowNull: false
   },

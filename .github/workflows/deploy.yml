@@ -1,0 +1,113 @@
+# name: CI/CD Pipeline Corporate Compliance
+
+# on:
+#   push:
+#     branches: [ production, main ] # Corre en producción
+#     paths:
+#       - 'src/**'
+#       - 'frontend/**'
+#   pull_request:
+#     branches: [ production ] # Corre testing en PRs a producción
+
+# jobs:
+#   # --- STAGE 1: TESTING (BACKEND) ---
+#   test-backend:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+      
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '18'
+#           cache: 'npm'
+
+#       - name: Install Dependencies
+#         run: npm install
+
+#       - name: Run Backend Tests
+#         run: npm test
+#         env:
+#           NODE_ENV: test
+#           # Aquí podrías usar una DB en memoria o un servicio de Docker para los tests
+
+#   # --- STAGE 2: BUILD & PUSH (BACKEND) ---
+#   build-backend:
+#     needs: test-backend
+#     if: github.ref == 'refs/heads/production' # Solo si es la rama de producción
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+      
+#       # Verificamos si hubo cambios reales en el código del backend
+#       - name: Check for backend changes
+#         uses: dorny/paths-filter@v3
+#         id: filter
+#         with:
+#           filters: |
+#             backend:
+#               - 'src/**'
+
+#       - name: Login to DockerHub
+#         if: steps.filter.outputs.backend == 'true'
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKER_USERNAME }}
+#           password: ${{ secrets.DOCKER_PASSWORD }}
+
+#       - name: Build and Push Backend
+#         if: steps.filter.outputs.backend == 'true'
+#         uses: docker/build-push-action@v5
+#         with:
+#           context: .
+#           push: true
+#           tags: ${{ secrets.DOCKER_USERNAME }}/complif-api:latest
+
+#   # --- STAGE 3: BUILD & PUSH (FRONTEND) ---
+#   build-frontend:
+#     # El frontend no depende de los tests del backend, pero solo corre en producción
+#     if: github.ref == 'refs/heads/production'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+      
+#       - name: Check for frontend changes
+#         uses: dorny/paths-filter@v3
+#         id: filter
+#         with:
+#           filters: |
+#             frontend:
+#               - 'frontend/**'
+
+#       - name: Login to DockerHub
+#         if: steps.filter.outputs.frontend == 'true'
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKER_USERNAME }}
+#           password: ${{ secrets.DOCKER_PASSWORD }}
+
+#       - name: Build and Push Frontend
+#         if: steps.filter.outputs.frontend == 'true'
+#         uses: docker/build-push-action@v5
+#         with:
+#           context: ./frontend
+#           push: true
+#           tags: ${{ secrets.DOCKER_USERNAME }}/complif-frontend:latest
+
+#   # --- STAGE 4: DEPLOY TO SERVER ---
+#   deploy:
+#     needs: [build-backend, build-frontend]
+#     if: github.ref == 'refs/heads/production'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Deploy via SSH to EC2
+#         uses: appleboy/ssh-action@master
+#         with:
+#           host: ${{ secrets.SERVER_HOST }}
+#           username: ${{ secrets.SERVER_USER }}
+#           key: ${{ secrets.SSH_PRIVATE_KEY }}
+#           script: |
+#             cd /home/ubuntu/app
+#             docker-compose pull
+#             docker-compose up -d --remove-orphans
+#             docker image prune -f

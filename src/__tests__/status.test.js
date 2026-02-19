@@ -10,11 +10,12 @@ describe('Status Endpoints', () => {
     beforeAll(async () => {
         await sequelize.sync({ force: true });
         
+        // Reemplaza en el setup (línea 13 aprox):
         await Company.create({
             cuit: testCuit,
-            nombre: 'Test Corp',
-            pais: 'Argentina',
-            industria: 'Tech'
+            name: 'Test Corp', // Cambiado 'nombre' por 'name'
+            country: 'Argentina',
+            industry: 'Retail'
         });
 
         await User.create({

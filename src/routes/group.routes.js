@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const groupController = require('../controllers/group.controller');
+const { authenticate, isAdmin } = require('../middlewares/auth.middleware');
 
 /**
  * @openapi
@@ -8,6 +9,7 @@ const groupController = require('../controllers/group.controller');
  * name: Groups
  * description: Configuración de grupos de firmantes y asignación de usuarios
  */
+router.use(authenticate);
 
 /**
  * @openapi
@@ -39,7 +41,7 @@ const groupController = require('../controllers/group.controller');
  * 403:
  * description: Acceso denegado. Se requieren permisos de administrador.
  */
-router.post('/', groupController.createGroup);
+router.post('/',isAdmin, groupController.createGroup);
 
 /**
  * @openapi
@@ -72,6 +74,6 @@ router.post('/', groupController.createGroup);
  * 404:
  * description: Usuario o Grupo no encontrado.
  */
-router.post('/add-user', groupController.addUserToGroup);
+router.post('/add-user',isAdmin, groupController.addUserToGroup);
 
 module.exports = router;

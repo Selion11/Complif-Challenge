@@ -1,12 +1,13 @@
 import api from './api';
 
 // --- GESTIÓN DE GRUPOS ---
-export const createGroup = async (name: string, description: string) => {
-  const response = await api.post('/groups', { name, description });
+export const createGroup = async (nombre: string) => {
+  // ✅ Enviamos 'nombre' para que el controlador lo reciba correctamente
+  const response = await api.post('/groups', { nombre });
   return response.data;
 };
 
-export const addUserToGroup = async (userId: number, groupId: number) => {
+export const addUserToGroup = async (userId: string, groupId: string) => {
   const response = await api.post('/groups/add-user', { userId, groupId });
   return response.data;
 };
@@ -27,12 +28,21 @@ export const getRulesByCompany = async (companyCuit: string) => {
 };
 
 // --- SOLICITUDES DE FIRMA ---
-export const createSignatureRequest = async (data: { companyCuit: string, documentId: number, title: string }) => {
+
+// ✅ Agregado para traer datos reales de la DB
+export const getSignatureRequests = async () => {
+  const response = await api.get('/requests');
+  return response.data;
+};
+
+export const createSignatureRequest = async (data: { accion: string, descripcion: string }) => {
+  // Enviamos el objeto tal cual lo espera el backend
   const response = await api.post('/requests', data);
   return response.data;
 };
 
-export const signDocument = async (requestId: number) => {
+// ✅ Cambiado requestId a string para soportar UUID
+export const signDocument = async (requestId: string) => {
   const response = await api.post(`/requests/${requestId}/sign`);
   return response.data;
 };

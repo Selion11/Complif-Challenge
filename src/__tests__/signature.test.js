@@ -14,9 +14,9 @@ describe('Signature Engine Logic', () => {
 
         await Company.create({
             cuit: testCuit,
-            nombre: 'Firma S.A.',
-            pais: 'Argentina',
-            industria: 'Tech'
+            name: 'Firma S.A.', // Cambiado 'nombre' por 'name'
+            country: 'Argentina',
+            industry: 'Servicios'
         });
 
         const groupA = await Group.create({ 

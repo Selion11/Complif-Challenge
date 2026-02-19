@@ -3,9 +3,9 @@ const errorHandler = require('./middlewares/error.middleware');
 const { authenticate } = require('./middlewares/auth.middleware');
 const cors = require('cors');
 const logger = require('./utils/logger');
+const path = require('path')
 
-// 1. CARGA DE MODELOS Y RELACIONES
-// Importar el index dispara la ejecución de asociaciones en models.relations.js
+
 require('./models'); 
 
 // Swagger
@@ -22,8 +22,7 @@ const requestRoutes = require('./routes/request.routes');
 
 const app = express();
 
-// 2. CONFIGURACIÓN DE SWAGGER PROTEGIDA
-// Solo intentamos cargar Swagger si no hay errores semánticos en los YAML de las rutas.
+
 let swaggerSpec = null;
 try {
     const swaggerOptions = {
@@ -55,17 +54,25 @@ try {
     };
     swaggerSpec = swaggerJsdoc(swaggerOptions);
 } catch (err) {
-    // Si Swagger falla por claves duplicadas en los comentarios, el servidor no se cae
     console.error('Swagger Load Error (Bypass):', err.message);
 }
 
 // MIDDLEWARES
 app.use(cors({
-    origin: 'http://localhost:3000', // Permitir solo tu frontend
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true // Permitir cookies/headers de auth si los usas
+    origin: 'http://localhost:3000',
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'Accept', 
+        'Origin', 
+        'X-Requested-With'
+    ],
+    credentials: true,
+    maxAge: 86400 
 }));
+
+app.options('*', cors())
 
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true })); 
@@ -75,10 +82,11 @@ app.use((req, res, next) => {
     next();
 });
 
-// DOCS: Swagger UI (Solo si el spec es válido)
 if (swaggerSpec) {
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 }
+
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // 3. DEFINICIÓN DE RUTAS
 app.use('/health', systemRoutes);

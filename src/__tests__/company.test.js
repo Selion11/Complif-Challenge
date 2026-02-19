@@ -12,9 +12,9 @@ describe('Company Management', () => {
         
         await Company.create({
             cuit: adminCuit,
-            nombre: 'Admin Corp',
-            pais: 'Argentina',
-            industria: 'Tecnologia'
+            name: 'Admin Corp',
+            country: 'Argentina',
+            industry: 'Tecnologia'
         });
 
         await User.create({
@@ -40,18 +40,32 @@ describe('Company Management', () => {
             .post('/api/companies/create')
             .set('Authorization', `Bearer ${adminToken}`)
             .send({
-                nombre: 'Nueva Empresa S.A.',
+                name: 'Nueva Empresa S.A.',
                 cuit: '30111111118',
-                pais: 'Argentina',
-                industria: 'Agro'
+                country: 'Argentina', 
+                industry: 'Agro'
             });
 
-        // Si tu validador externo tarda, aceptamos el 400 controlado, 
-        // pero buscamos el 201 en un entorno ideal.
         if (res.statusCode === 400) {
-            console.log("DEBUG VALIDATION FAIL:", res.body.errors);
+            console.log("DEBUG VALIDATION FAIL:", JSON.stringify(res.body.errors, null, 2));
         }
         
-        expect([201, 400]).toContain(res.statusCode);
+        expect(res.statusCode).toBe(201);
+        expect(res.body.success).toBe(true);
+    });
+
+    it('Debería rechazar la creación de una empresa duplicada (409)', async () => {
+        const res = await request(app)
+            .post('/api/companies/create')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                name: 'Admin Corp',
+                cuit: adminCuit,
+                country: 'Argentina',
+                industry: 'Tecnologia'
+            });
+
+        expect(res.statusCode).toBe(409);
+        expect(res.body.success).toBe(false);
     });
 });
